@@ -8,19 +8,25 @@
 
 void BLINK_LED_1(void *pvParameter)
 {
+    while(1)
+    {
     gpio_set_level(LED_1, 1);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     gpio_set_level(LED_1, 0);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }
 
 void BLINK_LED_2(void *pvParameter)
 {
+    while(1)
+    {
     gpio_set_level(LED_2, 1);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     gpio_set_level(LED_2, 0);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
 }
 
 void app_main(void)
