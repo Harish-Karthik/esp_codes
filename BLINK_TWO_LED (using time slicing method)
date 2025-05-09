@@ -38,6 +38,6 @@ void app_main(void)
     gpio_set_direction(LED_2, GPIO_MODE_OUTPUT);
 
     xTaskCreate(BLINK_LED_1, "LED_1_BLINK", 2048,"led is blinking", 1, NULL);
-    xTaskCreate(BLINK_LED_1, "LED_2_BLINK", 2048,"led is blinking", 1, NULL);
+    xTaskCreate(BLINK_LED_2, "LED_2_BLINK", 2048,"led is blinking", 1, NULL);
 
 }
