@@ -1,0 +1,23 @@
+#include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <driver/gpio.h>
+#include <driver/ledc.h>
+
+#define GPIO_PWM 18
+#define GPIO_DIR 19
+
+void app_main(void)
+{
+    gpio_set_direction(GPIO_DIR, GPIO_MODE_OUTPUT);
+    gpio_set_level(GPIO_DIR, 1);
+
+    ledcSetup(0, 5000, 10);
+    ledcAttachPin(GPIO_PWM, 0);
+
+    ledcWrite(0, 512);
+    vTaskDelay(pdMS_TO_TICKS(10000));
+
+    ledcWrite(0, 0);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+}
