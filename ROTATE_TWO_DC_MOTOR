@@ -1,0 +1,85 @@
+#include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <driver/gpio.h>
+#include <driver/ledc.h>
+
+#define GPIO_PWM_1 18
+#define GPIO_DIR_1 19
+#define GPIO_PWM_2 8
+#define GPIO_DIR_2 1
+
+void wheel_1(void *pvParameter)
+{
+    while(1){
+    ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 512, 0);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+      ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 0, 0);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+void wheel_2(void *pvParameter)
+{
+    while(1)
+    {
+    ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 0, 0);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+     ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 512, 0);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+
+
+void app_main(void)
+{
+     gpio_set_direction(GPIO_DIR_1, GPIO_MODE_OUTPUT);
+    gpio_set_direction(GPIO_DIR_2, GPIO_MODE_OUTPUT);
+
+ledc_timer_config_t ledc_timer_1 = {
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .duty_resolution = LEDC_TIMER_10_BIT,
+    .clk_cfg = LEDC_AUTO_CLK,
+    .timer_num = LEDC_TIMER_0,
+    .freq_hz = 5000
+};
+ledc_timer_config(&ledc_timer_1);
+
+ledc_timer_config_t ledc_timer_2 = {
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .duty_resolution = LEDC_TIMER_10_BIT,
+    .clk_cfg = LEDC_AUTO_CLK,
+    .timer_num = LEDC_TIMER_1,
+    .freq_hz = 7000
+};
+ledc_timer_config(&ledc_timer_2);
+
+ledc_channel_config_t ledc_channel_1 = {
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .channel = LEDC_CHANNEL_0,
+    .timer_sel = LEDC_TIMER_0,
+    .hpoint = 0,
+    .intr_type = LEDC_INTR_DISABLE,
+    .duty = 0,
+    .gpio_num = GPIO_PWM_1
+};
+ledc_channel_config(&ledc_channel_1);
+
+ledc_channel_config_t ledc_channel_2 = {
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .channel = LEDC_CHANNEL_1,
+    .timer_sel = LEDC_TIMER_1,
+    .hpoint = 0,
+    .intr_type = LEDC_INTR_DISABLE,
+    .duty = 0,
+    .gpio_num = GPIO_PWM_2
+};
+ledc_channel_config(&ledc_channel_2);
+    gpio_set_level(GPIO_DIR_1, 1);
+    gpio_set_level(GPIO_DIR_2, 1);
+    
+    xTaskCreate(wheel_1, "1_wheel", 4096, NULL, 1, NULL);
+    xTaskCreate(wheel_2, "2_wheel", 4096, NULL, 1, NULL);
+}
+
