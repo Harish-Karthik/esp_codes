@@ -1,0 +1,90 @@
+#include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <driver/gpio.h>
+#include <driver/ledc.h>
+#include <driver/uart.h>
+
+#define GPIO_DIR 18
+#define GPIO_PWM 19
+
+int pwm = 0;
+
+
+void wheel_1 ()
+{
+ledc_timer_config_t ledc_timer = {
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .duty_resolution = LEDC_TIMER_10_BIT,
+    .clk_cfg = LEDC_AUTO_CLK,
+    .freq_hz = 5000,
+    .timer_num = LEDC_TIMER_0
+};
+ledc_timer_config(&ledc_timer);
+
+ledc_channel_config_t ledc_channel = {
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .duty = 0,
+    .timer_sel = LEDC_TIMER_0,
+    .hpoint = 0,
+    .gpio_num = GPIO_PWM,
+    .channel = LEDC_CHANNEL_0
+};
+ledc_channel_config(&ledc_channel);
+}
+
+void set_speed(int pwm_1)
+{
+    if(pwm_1 >= 0 && pwm_1 <= 100)
+    {
+        pwm = (1023 * pwm_1)/100 ;
+        ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, pwm, 0);
+    }
+}
+
+void uart_motor_control_task(void *arg)
+{
+    int i = 0;
+    uint8_t data[1];
+    char speed[10];
+    char ch;
+    while(1)
+    {
+    int len = uart_read_bytes(UART_NUM_0, data, 1, pdMS_TO_TICKS(100));
+
+    if(len > 0)
+    {
+        ch = data[0];
+        if(ch == '\n')
+        {
+            speed[i] = '\0';
+            pwm = atoi(speed);
+            set_speed(pwm);
+            i = 0;
+        }
+        else
+        {
+            speed[i] = ch;
+            i++;
+        }
+    }
+    }
+}
+void app_main()
+{
+    gpio_set_direction(GPIO_DIR, GPIO_MODE_OUTPUT);
+    gpio_set_level(GPIO_DIR, 0);
+    wheel_1();
+
+    const uart_config_t uart_configur = {
+        .baud_rate = 115200,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .data_bits = UART_DATA_8_BITS
+    };
+    uart_param_config(UART_NUM_0, &uart_configur);
+    uart_driver_install(UART_NUM_0, 1024, 0, 0, NULL, 0);
+
+    xTaskCreate(uart_motor_control_task, "1_wheel", 4096, NULL, 9, NULL);
+}
