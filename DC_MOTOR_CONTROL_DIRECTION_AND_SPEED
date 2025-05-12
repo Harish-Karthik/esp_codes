@@ -1,0 +1,101 @@
+#include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <driver/gpio.h>
+#include <driver/uart.h>
+#include <driver/ledc.h>
+
+#define GPIO_PWM 18
+#define GPIO_DIR 19
+
+int speed = 0;
+
+void wheel_1()
+{
+ledc_timer_config_t ledc_timer = {
+  .speed_mode = LEDC_HIGH_SPEED_MODE,
+  .timer_num = LEDC_TIMER_0,
+  .duty_resolution = LEDC_TIMER_10_BIT,
+  .freq_hz = 5000,
+  .clk_cfg = LEDC_AUTO_CLK
+};
+ledc_timer_config(&ledc_timer);
+
+ledc_channel_config_t ledc_channel = {
+  .speed_mode = LEDC_HIGH_SPEED_MODE,
+  .channel = LEDC_CHANNEL_0,
+  .timer_sel = LEDC_TIMER_0,
+  .gpio_num = GPIO_PWM,
+  .duty = 0,
+  .hpoint = 0
+};
+ledc_channel_config(&ledc_channel);
+}
+
+void set_speed(int pwm)
+{
+  if(pwm >= 0 && pwm <= 100)
+  {
+    speed = (pwm * 1024) / 100;
+    ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, speed, 0);
+  }
+}
+
+void uart_motor_control_task (void *arg)
+{
+  char data[20];
+  char input[20];
+  int len = 0;
+  char ch;
+  int i = 0;
+  int pwm;
+  char direction;
+
+    while(1)
+    {
+   len = uart_read_bytes(UART_NUM_0, data, 1, pdMS_TO_TICKS(300));
+   if(len > 0)
+   {
+    ch = data[0];
+    if(ch == '\n')
+    {
+      input[i] = '\0';
+      sscanf(input, "%c,%d", &direction, &pwm);
+
+      if(direction == 'f')
+      {
+        gpio_set_level(GPIO_DIR, 0);
+        set_speed(pwm);
+      }
+      else  if(direction == 'b')
+      {
+        gpio_set_level(GPIO_DIR, 1);
+        set_speed(pwm);
+      }
+      i = 0;
+    }
+    else 
+    {
+      input[i] = ch;
+      i++;
+    }
+   }
+  }
+}
+
+void app_main(void)
+{
+  wheel_1();
+  gpio_set_direction(GPIO_DIR, GPIO_MODE_OUTPUT);
+  const uart_config_t uart_config = {
+    .baud_rate = 115200,
+    .parity = UART_PARITY_DISABLE,
+    .data_bits = UART_DATA_8_BITS,
+    .stop_bits = UART_STOP_BITS_1,
+    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
+  };
+  uart_param_config(UART_NUM_0, &uart_config);
+  uart_driver_install(UART_NUM_0, 10, 0, 0, NULL, 0);
+
+  xTaskCreate(uart_motor_control_task, "1_wheel", 2096, NULL, 10, NULL);
+}
