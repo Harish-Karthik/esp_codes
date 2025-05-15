@@ -1,0 +1,47 @@
+#include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <driver/gpio.h>
+#include <driver/timer.h>
+#include <driver/uart.h>
+
+#define GPIO_TRIG GPIO_NUM_18
+#define GPIO_ECHO GPIO_NUM_19
+
+int distance = 0;
+int64_t echo_time = 0;
+void ultrasonic(void *pvParameter)
+{
+  while(1)
+  {
+gpio_set_level(GPIO_TRIG, 0);
+vTaskDelay(pdMS_TO_TICKS(1000));
+gpio_set_level(GPIO_TRIG, 1);
+ets_delay_us(100);
+gpio_set_level(GPIO_TRIG, 0);
+
+int64_t start_time = esp_timer_get_time();
+while(gpio_get_level(GPIO_ECHO) == 0)
+{
+  if((esp_timer_get_time() - start_time) > 100000)break;
+}
+int64_t start_time_2 = esp_timer_get_time();
+
+while(gpio_get_level(GPIO_ECHO) == 1)
+{
+   echo_time =  esp_timer_get_time() - start_time_2;
+}
+
+distance = (echo_time * 0.0343) / 2;
+printf("Distance is %d \n", distance);
+vTaskDelay(pdMS_TO_TICKS(500));
+  }
+}
+
+void app_main(void)
+{
+  gpio_set_direction(GPIO_TRIG, GPIO_MODE_OUTPUT);
+  gpio_set_direction(GPIO_ECHO, GPIO_MODE_INPUT);
+
+  xTaskCreate(ultrasonic, "sensor", 4096, NULL, 10, NULL);
+}
