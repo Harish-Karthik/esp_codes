@@ -1,0 +1,123 @@
+#include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <driver/gpio.h>
+#include <driver/ledc.h>
+
+#define PWM_1 GPIO_NUM_18
+#define DIR_1 GPIO_NUM_19
+
+#define PWM_2 GPIO_NUM_20
+#define DIR_2 GPIO_NUM_21
+
+#define TRIG GPIO_NUM_7
+#define ECHO GPIO_NUM_8
+
+int64_t time = 0;
+int64_t time_1 = 0;
+int distance = 0;
+
+void ultrasonic(void *pvParameters)
+{
+while(1)
+{
+  gpio_set_level(TRIG, 0);
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  gpio_set_level(TRIG, 1);
+  ets_delay_us(10);
+  gpio_set_level(TRIG, 0);
+
+  int64_t start_time = esp_timer_get_time();
+  while(gpio_get_level(ECHO) == 0)
+  if(esp_timer_get_time() - start_time > 100000) break;
+
+  int64_t start_time_2 = esp_timer_get_time();
+  while(gpio_get_level(ECHO) == 1){
+      if (esp_timer_get_time() - start_time_2 > 100000) break;
+  }
+time_1 = esp_timer_get_time();
+
+  time = time_1 - start_time_2;
+
+  distance = ( time * 0.0343 ) / 2 ;
+  vTaskDelay(pdMS_TO_TICKS(100));
+ }
+}
+void setter()
+{
+ledc_timer_config_t ledc_timer = {
+   .speed_mode = LEDC_HIGH_SPEED_MODE,
+   .duty_resolution = LEDC_TIMER_10_BIT,
+   .timer_num = LEDC_TIMER_0,
+   .freq_hz = 5000,
+   .clk_cfg = LEDC_AUTO_CLK
+};
+ledc_timer_config(&ledc_timer);
+
+ledc_channel_config_t ledc_channel_1 = {
+  .gpio_num = PWM_1,
+  .speed_mode = LEDC_HIGH_SPEED_MODE,
+   .channel = LEDC_CHANNEL_0,
+   .timer_sel = LEDC_TIMER_0,
+   .duty = 0,
+   .hpoint = 0
+  };
+ledc_channel_config(&ledc_channel_1);
+
+ledc_channel_config_t ledc_channel_2 = {
+  .gpio_num = PWM_2,
+  .speed_mode = LEDC_HIGH_SPEED_MODE,
+   .channel = LEDC_CHANNEL_1,
+   .timer_sel = LEDC_TIMER_0,
+   .duty = 0,
+   .hpoint = 0
+};
+ledc_channel_config(&ledc_channel_2);
+}
+
+void runner(void *pvParameters)
+{
+  while(1)
+  {
+if(distance > 45)
+{
+  ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 512, 0);
+  ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 512, 0);
+}
+else if(distance < 45 && distance > 30)
+{
+   ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 256, 0);
+  ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 256, 0);
+}
+else if(distance < 30)
+{
+      gpio_set_level(DIR_1, 1); 
+      gpio_set_level(DIR_2, 0); 
+ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 512 ,0);
+ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 512, 0);
+vTaskDelay(pdMS_TO_TICKS(5000));
+ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, 256, 0);
+ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 256, 0);
+}
+vTaskDelay(pdMS_TO_TICKS(100));
+  }
+
+}
+void app_main()
+{
+  gpio_set_direction(PWM_1, GPIO_MODE_OUTPUT);
+  gpio_set_direction(PWM_2, GPIO_MODE_OUTPUT);
+  gpio_set_direction(DIR_1, GPIO_MODE_OUTPUT);
+  gpio_set_direction(DIR_2, GPIO_MODE_OUTPUT);
+
+  gpio_set_direction(TRIG, GPIO_MODE_OUTPUT);
+  gpio_set_direction(ECHO, GPIO_MODE_INPUT);
+
+  gpio_set_level(DIR_1, 0);
+  gpio_set_level(DIR_2, 0);
+
+  setter();
+
+  xTaskCreate(ultrasonic, "ultrasonic_task", 4096, NULL, 9, NULL);
+  xTaskCreate(runner, "runner_task", 4096, NULL, 10 ,NULL);
+}
